@@ -6,17 +6,16 @@
                        {:unresolved-symbol
                         {:exclude [(jirazzz/make-req-cmd)]}}}}
   (:require
-    [clojure.pprint :as pprint]
-    [babashka.fs :as fs]
-    [cheshire.core :as json]
-    [clojure.edn :as edn]
-    [clojure.string :as string]
-    [clojure.tools.cli :as cli]
-    [org.httpkit.client :as http]
-    [selmer.parser :as selmer]
-    [selmer.util :as selmer-util])
+   [clojure.pprint :as pprint]
+   [babashka.fs :as fs]
+   [cheshire.core :as json]
+   [clojure.edn :as edn]
+   [clojure.string :as string]
+   [clojure.tools.cli :as cli]
+   [org.httpkit.client :as http]
+   [selmer.parser :as selmer]
+   [selmer.util :as selmer-util])
   (:import [java.net URLEncoder]))
-
 
 ; cli utils
 (defn warn
@@ -24,11 +23,9 @@
   (binding [*out* *err*]
     (println (apply str args))))
 
-
 (defn exit
   [n]
   (System/exit n))
-
 
 ; config
 (defn env
@@ -37,34 +34,28 @@
       str
       System/getenv))
 
-
 (def HOME (env "HOME"))
-
 
 (def config-file
   (or (env "JIRAZZZ_CONFIG_FILE")
       (fs/path HOME ".jirazzz.edn")))
-
 
 (def config-dir
   (-> config-file
       fs/parent
       str
       (as-> s
-        (if (string/blank? s)
-          "."
-          s))))
-
+            (if (string/blank? s)
+              "."
+              s))))
 
 (defn relative-to-config
   [p]
   (cond->> p
     (fs/relative? p) (fs/path config-dir)))
 
-
 (def read-file
   (comp string/trim slurp str relative-to-config))
-
 
 (def read-edn
   (partial edn/read-string {:readers {'env env
@@ -79,24 +70,21 @@
 
 (def config
   (merge-deep
-    default-config
-    (when (fs/exists? config-file)
-      (-> config-file str slurp read-edn))))
+   default-config
+   (when (fs/exists? config-file)
+     (-> config-file str slurp read-edn))))
 
 (defn maybe-string
   [s]
   (when-not (string/blank? s)
     s))
 
-
 (defn parse-json
   [json]
   (when json
     (json/parse-string json true)))
 
-
 (def ->json json/generate-string)
-
 
 (defn parse-string
   [opts s]
@@ -104,7 +92,6 @@
             :json parse-json
             edn/read-string)]
     (f s)))
-
 
 (defn ->string
   [opts v]
@@ -115,18 +102,16 @@
               pr-str)]
       (f v))))
 
-
 (def ->nil (constantly nil))
 
 (defn url-encode
   [s]
   (URLEncoder/encode (str s)))
 
-
 (defn render-template
   [opts template]
   (-> (selmer-util/without-escaping
-        (selmer/render template opts))
+       (selmer/render template opts))
       (string/trim)))
 
 (defn show-errors
@@ -137,14 +122,12 @@
       (exit 1))
     opts))
 
-
 (defn custom-fields
   [opts]
   (some->> (:custom-fields opts)
            (map (fn [[fname ffield]]
                   [ffield (get opts fname)]))
            (into {})))
-
 
 (defn jira-url
   [opts path]
@@ -180,7 +163,7 @@
         :body
         maybe-string
         (cond->
-          is-json? parse-json)
+         is-json? parse-json)
         ; if there is no body return the whole response
         (or (dissoc response :opts :headers)))))
 
@@ -188,7 +171,6 @@
   [opts]
   (re-pattern (or (:sprint-pattern opts)
                   ".")))
-
 
 (defn get-sprint-id
   [opts]
@@ -204,7 +186,6 @@
                                 first))
                         :id)]
       sprint-id)))
-
 
 (defn get-meta
   [{:keys [project issue-type] :as opts}]
@@ -222,17 +203,14 @@
     (cond-> result
       (not (:backlog opts)) (assoc :sprint-id (get-sprint-id opts)))))
 
-
 (defn jira-user
   [opts typ]
   (get opts typ "-1"))
-
 
 (defn add-error
   [opts error]
   (-> opts
       (update :errors (fnil conj []) error)))
-
 
 (defn transition
   [opts]
@@ -270,21 +248,21 @@
   [opts]
   (let [opts (merge (get-meta opts) opts)
         response (jira-req
-                   opts
-                   :post
-                   "/rest/api/2/issue"
-                   {:json {:fields (merge
-                                     (select-keys opts [:summary
-                                                        :description])
-                                     {:project {:id (:project-id opts)}
-                                      :issuetype {:id (:type-id opts)}
-                                      :assignee {:name (jira-user opts :assignee)}}
-                                     (custom-fields opts))}})
+                  opts
+                  :post
+                  "/rest/api/2/issue"
+                  {:json {:fields (merge
+                                   (select-keys opts [:summary
+                                                      :description])
+                                   {:project {:id (:project-id opts)}
+                                    :issuetype {:id (:type-id opts)}
+                                    :assignee {:name (jira-user opts :assignee)}}
+                                   (custom-fields opts))}})
         ky (:key response)
         opts (-> opts
                  (assoc :issue ky)
                  (cond->
-                   (not ky) (add-error response)))]
+                  (not ky) (add-error response)))]
     (when (:comment opts)
       (add-comment opts))
     (transition opts)))
@@ -307,14 +285,12 @@
                             (->> (re-find #"/json")))]
        (-> response
            (cond->
-             is-json? (update :body parse-json))))))
-
+            is-json? (update :body parse-json))))))
 
 (make-req-cmd get)
 (make-req-cmd post)
 (make-req-cmd put)
 (make-req-cmd delete 3)
-
 
 (defn assign
   {:command 'assign
@@ -341,11 +317,10 @@
   [opts & [to]]
   (-> opts
       (cond->
-        to (assoc :transition to))
+       to (assoc :transition to))
       transition
       show-errors
       (render-template "{{issue}} moved to {{transition}}")))
-
 
 (defn create
   {:command 'create
@@ -354,7 +329,6 @@
   (let [opts (-> opts create-issue)]
     (or (:issue opts)
         (show-errors opts))))
-
 
 (defn issue
   {:command 'issue
@@ -370,11 +344,10 @@
   [opts & [comment-body]]
   (-> opts
       (cond->
-        comment-body (assoc :comment comment-body))
+       comment-body (assoc :comment comment-body))
       add-comment
       show-errors
       (render-template "Comment added to {{issue}}")))
-
 
 (defn issue-pattern
   [opts]
@@ -382,7 +355,6 @@
       :issue-pattern
       (or "([A-Z]+-[0-9]+)")
       re-pattern))
-
 
 (defn commit-msg
   {:command 'commit-msg
@@ -405,7 +377,6 @@
                 (render-template opts template)))))
     ""))
 
-
 (defn parse-log
   {:command 'parse-log
    :doc "Parse commit log and transition referenced issues"}
@@ -420,14 +391,14 @@
                      transition
                      :issue)))
       (as-> xs
-        (if (seq xs)
-          (string/join
-            "\n"
-            (map #(-> opts
-                      (assoc :issue %)
-                      (render-template "{{issue}} transitioned to {{transition}}"))
-                 xs))
-          ""))))
+            (if (seq xs)
+              (string/join
+               "\n"
+               (map #(-> opts
+                         (assoc :issue %)
+                         (render-template "{{issue}} transitioned to {{transition}}"))
+                    xs))
+              ""))))
 
 ; https://support.atlassian.com/jira-software-cloud/docs/advanced-search-reference-jql-fields/
 (defn search
@@ -451,39 +422,38 @@
 
 (def cli-options
   (concat
-    [["-h" "--help" "Show usage"]
+   [["-h" "--help" "Show usage"]
 
-     [nil  "--assignee USERNAME" "Assign issue to username (-1 for unassigned)"]
-     [nil  "--backlog" "Put isue in backlog instead of current sprint"]
-     [nil  "--comment BODY" "Comment body to add to issue"]
-     [nil  "--commit-template TEMPLATE" "Selmer template for adding issue to commit message"]
-     [nil  "--description DESC" "Issue description"]
-     ["-i" "--issue KEY" "Issue Key"]
-     [nil  "--issue-pattern PATTERN" "Regular Expression to find issue in commit message"]
-     [nil  "--issue-type TYPE" "Issue Type"]
-     [nil  "--jql SEARCH" "JQL fragment used for search"]
-     ["-p" "--project PROJECT" "Project for issue creation"]
-     [nil  "--rapid-view ID" "RapidView id"]
-     [nil  "--sprint-pattern PATTERN" "Regular Expression to find current sprint"]
-     [nil  "--summary SUMMARY" "Issue summary"]
-     [nil  "--transition NAME" "Transition issue to this state"]
-     [nil  "--unassigned" "Set issue as Unassigned"
-      :assoc-fn (fn [o & _] (assoc o :assignee "-1"))]
-     [nil  "--url URL" "Jira URL"]
+    [nil  "--assignee USERNAME" "Assign issue to username (-1 for unassigned)"]
+    [nil  "--backlog" "Put isue in backlog instead of current sprint"]
+    [nil  "--comment BODY" "Comment body to add to issue"]
+    [nil  "--commit-template TEMPLATE" "Selmer template for adding issue to commit message"]
+    [nil  "--description DESC" "Issue description"]
+    ["-i" "--issue KEY" "Issue Key"]
+    [nil  "--issue-pattern PATTERN" "Regular Expression to find issue in commit message"]
+    [nil  "--issue-type TYPE" "Issue Type"]
+    [nil  "--jql SEARCH" "JQL fragment used for search"]
+    ["-p" "--project PROJECT" "Project for issue creation"]
+    [nil  "--rapid-view ID" "RapidView id"]
+    [nil  "--sprint-pattern PATTERN" "Regular Expression to find current sprint"]
+    [nil  "--summary SUMMARY" "Issue summary"]
+    [nil  "--transition NAME" "Transition issue to this state"]
+    [nil  "--unassigned" "Set issue as Unassigned"
+     :assoc-fn (fn [o & _] (assoc o :assignee "-1"))]
+    [nil  "--url URL" "Jira URL"]
 
-     [nil  "--input-format FORMAT" "Set input format (can be 'json', default is 'edn')"
-      :parse-fn keyword]
-     [nil  "--output-format FORMAT" "Set output format (can be 'json', default is 'edn')"
-      :parse-fn keyword]]
-    (-> config
-        :custom-fields
-        (or {})
-        (->> (map (fn [[k v]]
-                    (let [k (name k)]
-                      [nil
-                       (str "--" k " VALUE")
-                       (str "Set custom field for " k " (" (name v) ")")])))))))
-
+    [nil  "--input-format FORMAT" "Set input format (can be 'json', default is 'edn')"
+     :parse-fn keyword]
+    [nil  "--output-format FORMAT" "Set output format (can be 'json', default is 'edn')"
+     :parse-fn keyword]]
+   (-> config
+       :custom-fields
+       (or {})
+       (->> (map (fn [[k v]]
+                   (let [k (name k)]
+                     [nil
+                      (str "--" k " VALUE")
+                      (str "Set custom field for " k " (" (name v) ")")])))))))
 
 (defn commands
   []
@@ -498,7 +468,6 @@
   (-> (:aliases config)
       (->> (map (fn [[k v]] [k (with-meta v (select-keys v [:doc]))]))
            (into {}))))
-
 
 (defn usage
   [{:keys [errors summary]}]
@@ -525,9 +494,9 @@
 (defn parsed-opts-merger
   [old-val new-val]
   ((condp #(%1 %2) new-val
-    map? merge
-    seq? concat
-    (fn [_ov nv] nv)) old-val new-val))
+     map? merge
+     seq? concat
+     (fn [_ov nv] nv)) old-val new-val))
 
 (def merge-parsed-cli (partial merge-with parsed-opts-merger))
 
@@ -543,7 +512,6 @@
       (if-let [a (get-in config [:aliases cmdname])]
         (recur result config (concat (:args a) (rest args)))
         (merge-parsed-cli result (cli/parse-opts args cli-options))))))
-
 
 ; main
 (defn parse-args
@@ -566,7 +534,6 @@
       (exit 1))
     (let [opts (merge config (:options parsed))]
       [cmd opts args])))
-
 
 (defn -main
   [args]
