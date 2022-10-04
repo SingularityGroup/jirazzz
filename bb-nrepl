@@ -1,0 +1,6 @@
+#!/bin/sh
+
+export JIRA_TOKEN=`pass jira-api-token`
+export JIRA_USER_EMAIL="Benjamin.Schwerdtner@gmail.com"
+
+bb nrepl

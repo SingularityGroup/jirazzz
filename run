@@ -1,0 +1,7 @@
+#!/bin/sh
+
+export JIRA_TOKEN=`pass jira-api-token`
+export JIRA_USER_EMAIL="Benjamin.Schwerdtner@gmail.com"
+
+# bb ./jirazzz create --summary "lol hurr"
+bb --init ./jirazzz -x jirazzz/search-all-oneline :jql "issuekey in issueHistory() order by lastViewed DESC"

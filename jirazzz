@@ -68,11 +68,21 @@
 
 (def merge-deep (partial merge-with (fn [o n] (if (map? o) (merge o n) n))))
 
+(def env->config
+  {:jira-token "JIRA_TOKEN" :jira-user "JIRA_USER_EMAIL"})
+
+(def from-env
+  (into
+   {}
+   (->> (update-vals env->config env)
+        (filter second))))
+
 (def config
   (merge-deep
    default-config
    (when (fs/exists? config-file)
-     (-> config-file str slurp read-edn))))
+     (-> config-file str slurp read-edn))
+   from-env))
 
 (defn maybe-string
   [s]
@@ -133,23 +143,26 @@
   [opts path]
   (str (:url opts) path))
 
-(defn jira-req
+(defn jira-req-1
   "Send a request to jira
 
   `req-opts` is a map that may contain:
   - `:json <value>` the body to post
   - `:headers {..}`"
-  [opts method path & [req-opts]]
+  [{:keys [jira-user jira-token] :as opts} method path req-opts]
   (let [json (some-> req-opts
                      :json
                      ->json)
         headers (cond-> (:headers opts)
                   json (assoc "Content-type" "application/json; charset=utf-8"))
-        req (merge {:as :text
-                    :url (jira-url opts path)
-                    :method method
-                    :headers headers
-                    :body json}
+        req (merge (cond->
+                       {:as :text
+                        :url (jira-url opts path)
+                        :method method
+                        :headers headers
+                        :body json}
+                     (and jira-user jira-token)
+                     (assoc :basic-auth [jira-user jira-token]))
                    (dissoc req-opts :json))
         response @(http/request req)
         is-json? (some-> response
@@ -166,6 +179,17 @@
          is-json? parse-json)
         ; if there is no body return the whole response
         (or (dissoc response :opts :headers)))))
+
+(defn jira-req
+  "Send a request to jira
+
+  `req-opts` is a map that may contain:
+  - `:json <value>` the body to post
+  - `:headers {..}`"
+  ([opts method path]
+   (jira-req opts method path nil))
+  ([opts method path req-opts]
+   (jira-req-1 (merge config opts) method path req-opts)))
 
 (defn sprint-pattern
   [opts]
@@ -400,7 +424,49 @@
                     xs))
               ""))))
 
-; https://support.atlassian.com/jira-software-cloud/docs/advanced-search-reference-jql-fields/
+(defn default-iteration-kf
+  [{:keys [startAt total isLast maxResults next]}]
+  (let [last? (or isLast (not next))]
+    (when-not last?
+      (min
+       total
+       (+ startAt maxResults)))))
+
+(defn search-iteration
+  "Returns an [[iteration]] of jira jql search results."
+  [{:keys [jql limit] :as opts}]
+  (sequence
+   cat
+   (iteration
+    (fn [k]
+      (jira-req
+       (merge config opts)
+       :get
+       (str "/rest/api/2/search?jql=" (url-encode jql))
+       (cond->
+           {:query-params
+            {:startAt (or k 0)}}
+         limit (assoc :limit limit))))
+    :vf :issues
+    :kf default-iteration-kf
+    :somef (comp seq :issues))))
+
+(defn s-truncate [s n] (subs s 0 (min (count s) n)))
+
+(defn issue-oneline [{:keys [key]
+                      {:keys [status summary]}
+                      :fields}]
+  (s-truncate (string/join " | " [key (:name status) summary]) 80))
+
+(defn search-all-oneline
+  {:command 'search-all-oneline
+   :doc "Search jql. Print all issues.
+:limit, :jql"}
+  [opts]
+  (->> (search-iteration opts)
+       (map issue-oneline)
+       (run! println)))
+                                        ; https://support.atlassian.com/jira-software-cloud/docs/advanced-search-reference-jql-fields/
 (defn search
   {:command 'search
    :doc "Search issues: jirazzz search \"some jql fragment\""}
@@ -415,15 +481,15 @@
            (map (fn [{key :key, {:keys [status summary]} :fields}]
                   {"key" key
                    "status" (:name status)
-                   "summary" (subs summary 0 (min (count summary) 40))
+                   "summary" (s-truncate summary 40)
                    "browse url" (jira-url opts (str "/browse/" key))}))
            (pprint/print-table)))
     ""))
 
+
 (def cli-options
   (concat
    [["-h" "--help" "Show usage"]
-
     [nil  "--assignee USERNAME" "Assign issue to username (-1 for unassigned)"]
     [nil  "--backlog" "Put isue in backlog instead of current sprint"]
     [nil  "--comment BODY" "Comment body to add to issue"]
@@ -441,7 +507,6 @@
     [nil  "--unassigned" "Set issue as Unassigned"
      :assoc-fn (fn [o & _] (assoc o :assignee "-1"))]
     [nil  "--url URL" "Jira URL"]
-
     [nil  "--input-format FORMAT" "Set input format (can be 'json', default is 'edn')"
      :parse-fn keyword]
     [nil  "--output-format FORMAT" "Set output format (can be 'json', default is 'edn')"
@@ -514,6 +579,7 @@
         (merge-parsed-cli result (cli/parse-opts args cli-options))))))
 
 ; main
+
 (defn parse-args
   [args]
   (let [parsed (parse-cli-opts config args)
@@ -533,7 +599,7 @@
       (warn (usage parsed))
       (exit 1))
     (let [opts (merge config (:options parsed))]
-      [cmd opts args])))
+      [cmd args opts])))
 
 (defn -main
   [args]
@@ -556,5 +622,93 @@
           (exit 1))
         (throw e)))))
 
-(when (= *file* (System/getProperty "babashka.file"))
-  (-main *command-line-args*))
+;; (when (= *file* (System/getProperty "babashka.file"))
+;;   (-main *command-line-args*))
+
+(comment
+
+  (jira-req
+   config
+   :post
+   "/rest/api/2/issue/"
+   {:json
+    {:fields
+     {:assignee
+      {:accountId "5ace46054fe2de2a7f6302bf"}
+      :project {:key "BEN"}
+      :issuetype {:name "Bug"}
+      :summary "Hurr1"
+      :description "saying *lol*"}}})
+
+
+  )
+
+(defn jql-oneline []
+
+  )
+
+(defn foo [m]
+  (m prn))
+
+(comment
+
+  (def jql "issuekey in issueHistory() order by lastViewed DESC")
+
+  (def it
+    (sequence
+     cat
+     (iteration
+      (fn [k]
+        (jira-req
+         config
+         :get
+         (str "/rest/api/2/search?jql=" (url-encode jql))
+         {:query-params
+          {:startAt (or k 0)}}))
+      :vf :issues
+      :kf default-iteration-kf
+      :somef (comp seq :issues))))
+
+  (map :key (take 10 it))
+
+  (jira-req
+   config
+   :get
+   (str "/rest/api/2/search?jql=" (url-encode jql))
+   {:query-params {:startAt 0}})
+
+  (def resp *1)
+
+  (keys resp)
+
+  (default-iteration-kf resp)
+  (default-iteration-kf resp)
+
+  (issue-oneline (first (:issues resp)))
+
+  (jira-req
+   config
+   :get
+   (str "/rest/api/2/search?jql=" (url-encode "order by created DESC"))
+   {:query-params {:startAt 0}})
+
+
+  (jira-req
+   config
+   :put
+   (str "/rest/api/2/issue/"
+        "COS-102129")
+   {:json
+    {:fields
+     {"customfield_10030"
+      (string/trim
+       (:out
+        (clojure.java.shell/sh
+         "git" "rev-parse" "HEAD" :dir "/home/benj/idlegame/")))}}})
+
+
+  (def fields (jira-req config :get (str "/rest/api/3/field")))
+
+  (first fields)
+  (->> fields (filter (comp #{"Commit"} :name)))
+  (->> fields (map :name)))
