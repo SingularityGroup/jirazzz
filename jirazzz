@@ -9,6 +9,7 @@
    [clojure.pprint :as pprint]
    [babashka.fs :as fs]
    [cheshire.core :as json]
+   [clojure.java.shell :as shell]
    [clojure.edn :as edn]
    [clojure.string :as string]
    [clojure.tools.cli :as cli]
@@ -37,8 +38,10 @@
 (def HOME (env "HOME"))
 
 (def config-file
-  (or (env "JIRAZZZ_CONFIG_FILE")
-      (fs/path HOME ".jirazzz.edn")))
+  "my-jira-config.edn"
+  ;; (or (env "JIRAZZZ_CONFIG_FILE")
+  ;;     (fs/path HOME ".jirazzz.edn"))
+  )
 
 (def config-dir
   (-> config-file
@@ -82,7 +85,9 @@
    default-config
    (when (fs/exists? config-file)
      (-> config-file str slurp read-edn))
-   from-env))
+   from-env
+   {:jira-token (string/trim (:out (shell/sh "pass" "jira-api-token")))
+    :jira-user "Benjamin.Schwerdtner@gmail.com"}))
 
 (defn maybe-string
   [s]
@@ -286,12 +291,28 @@
         opts (-> opts
                  (assoc :issue ky)
                  (cond->
-                  (not ky) (add-error response)))]
+                     (not ky) (add-error response)))]
     (when (:comment opts)
       (add-comment opts))
     (transition opts)))
 
-; commands
+(defn
+  create-issue!
+  [{:keys [assignee] :as opts}]
+  (println
+   (:key
+    (jira-req
+     (merge config opts)
+     :post
+     "/rest/api/2/issue/"
+     {:json {:fields
+             {:assignee
+              {:accountId assignee}
+              :project {:key "BEN"}
+              :issuetype {:name "Bug"}
+              :summary "Hurr1"
+              :description "saying *lol*"}}}))))
+
 (defmacro make-req-cmd
   [verb & [weight]]
   `(defn ~(symbol (str "$" verb))
@@ -309,7 +330,7 @@
                             (->> (re-find #"/json")))]
        (-> response
            (cond->
-            is-json? (update :body parse-json))))))
+               is-json? (update :body parse-json))))))
 
 (make-req-cmd get)
 (make-req-cmd post)
@@ -626,7 +647,6 @@
 ;;   (-main *command-line-args*))
 
 (comment
-
   (jira-req
    config
    :post
@@ -638,10 +658,7 @@
       :project {:key "BEN"}
       :issuetype {:name "Bug"}
       :summary "Hurr1"
-      :description "saying *lol*"}}})
-
-
-  )
+      :description "saying *lol*"}}}))
 
 (defn jql-oneline []
 
@@ -692,7 +709,6 @@
    (str "/rest/api/2/search?jql=" (url-encode "order by created DESC"))
    {:query-params {:startAt 0}})
 
-
   (jira-req
    config
    :put
@@ -711,4 +727,84 @@
 
   (first fields)
   (->> fields (filter (comp #{"Commit"} :name)))
-  (->> fields (map :name)))
+  (->> fields (map :name))
+  )
+
+(defn
+  prn-issue
+  [{:keys [key]}]
+  (prn
+   (jira-req
+    config
+    :get
+    (str "/rest/api/2/issue/" issue))))
+
+(defn print-users [& _]
+  (->>
+   (jira-req
+    config
+    :get
+    "/rest/api/latest/user/search?query=+&maxResults=1000")
+   (map
+    (fn [{:keys [accountId displayName]}]
+      (format "%s - %s" displayName accountId)))
+   (run! println)))
+
+(comment
+
+  (spit
+   "/tmp/users.edn"
+   (prn-str
+    (->>
+     (jira-req
+      config
+      :get
+      "/rest/api/latest/user/search?query=+&maxResults=1000")
+     (map
+      (juxt :displayName :accountId)))))
+
+  (filter (comp #{"Benjamin Schwerdtner"} :displayName) *1)
+  (def benj-acc *1)
+
+
+
+  (jira-req
+   config
+   :post
+   "/rest/api/2/issue/"
+   {:json
+    {:fields
+     {:assignee
+      {:accountId "5ace46054fe2de2a7f6302bf"}
+      :project {:key "BEN"}
+      :issuetype {:name "Bug"}
+      :summary "Hurr1"
+      :description "saying *lol*"}}})
+
+  (jira-req
+   config
+   :post
+   "/rest/api/2/issue/"
+   {:json
+    {:fields
+     {:assignee
+      {:name "benjamin.schwerdtner@gmail.com"}
+      :project {:key "BEN"}
+      :issuetype {:name "Bug"}
+      :summary "Hurr1"
+      :description "saying *lol*"}}})
+
+
+  (assign
+   (merge
+    config
+    {:issue "BEN-1743"})
+   "Benjamin Schwerdtner")
+
+
+
+
+
+
+
+  )
