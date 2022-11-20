@@ -210,5 +210,100 @@ ARGS is a plist."
   ":assignee"
   "5ace46054fe2de2a7f6302bf"))
 
-
 (jinote-create-issue)
+
+
+(defvar jinote-buffer "*jinote*")
+
+(pop-to-buffer
+ (get-buffer-create jinote-buffer))
+
+
+
+
+
+
+(gethash
+ :fields
+ (-let* (((m)
+	  (with-current-buffer
+	      (find-file-noselect "ticket-1.edn")
+	    (goto-char (point-min))
+	    (parseedn-read)))
+	 ;; (&hash :fields fields) m
+	 )
+   m
+   ;; fields
+   ))
+
+
+(defun jinote--tags-data ()
+  (save-excursion
+    (goto-char (point-min))
+    (let ((res)
+	  (end (save-excursion
+		 (or (re-search-forward "^$" nil t) (point-max)))))
+      (while (re-search-forward "#\\+\\(.+?\\):\\s-+\\(.+?\\)$" end t)
+	(push
+	 (cons (match-string 1)
+	       (match-string 2))
+	 res))
+      res)))
+
+(defun jinote-tags-data (file)
+  (with-temp-buffer
+    (insert-file-contents file)
+    (jinote--tags-data)))
+
+(defun jinote-add-tag (tag value)
+  (goto-char (point-min))
+  (or (re-search-forward "^$" nil t)
+      (goto-char (point-max)))
+  (insert "#+" tag ":" value))
+
+(defun jinote-update-tag (tag value)
+  (if
+      (assoc tag (jinote--tags-data))
+      'fo
+    'fa
+    ;; (jinote-add-tag tag value)
+    ))
+
+(jinote-update-tag "foo" "bar")
+
+
+(-let* (((m)
+	 (with-current-buffer
+	     (find-file-noselect
+	      "ticket-1.edn")
+	   (goto-char (point-min))
+	   (parseedn-read)))
+	((&hash :fields fields) m)
+	((&hash :summary summary) fields)
+	((&hash :issuetype issue-type) fields)
+	((&hash :description description) fields))
+  ;; summary
+  (with-current-buffer
+      (get-buffer-create jinote-buffer)
+    (erase-buffer)
+    (insert"summary: ")
+    (insert summary)
+    (insert "\n")
+    (insert "issuetype:" (gethash :name issue-type))
+    (insert "\n")
+    (insert "\n")
+    (insert "description:\n")
+    (insert "\n")
+    (insert description)
+    (insert "\n")
+    (pop-to-buffer (current-buffer))))
+
+
+
+(let ((first))
+  (org-babel-map-src-blocks (buffer-file-name)
+    (unless
+	first
+      ( full-block)
+
+      (setf first t))))

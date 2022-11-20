@@ -26,7 +26,9 @@
 
 (defn exit
   [n]
-  (System/exit n))
+  (throw
+   (ex-info "Error condition. see logs above."
+            {:babashka/exit 1})))
 
 ; config
 (defn env
@@ -130,12 +132,14 @@
       (string/trim)))
 
 (defn show-errors
-  [opts]
-  (if (:errors opts)
-    (do
-      (run! warn (:errors opts))
-      (exit 1))
-    opts))
+  [{:keys [errors errorMessages] :as opts}]
+  (if-let
+      [errors
+       (or (seq errors) errorMessages)]
+      (do
+        (run! warn errors)
+        (exit 1))
+      opts))
 
 (defn custom-fields
   [opts]
@@ -296,22 +300,21 @@
       (add-comment opts))
     (transition opts)))
 
-(defn
-  create-issue!
-  [{:keys [assignee] :as opts}]
-  (println
-   (:key
-    (jira-req
-     (merge config opts)
-     :post
-     "/rest/api/2/issue/"
-     {:json {:fields
-             {:assignee
-              {:accountId assignee}
-              :project {:key "BEN"}
-              :issuetype {:name "Bug"}
-              :summary "Hurr1"
-              :description "saying *lol*"}}}))))
+(defn create-issue! [{:keys [in-file] :as opts}]
+  (->
+   (jira-req
+    (merge config opts)
+    :post
+    "/rest/api/2/issue/"
+    {:json
+     (merge-deep
+      {:fields (select-keys config [:assignee])}
+      (when (fs/exists? in-file)
+        #_(def in-file "ticket-1.edn")
+        (read-string (slurp in-file))))})
+   show-errors
+   :key
+   println))
 
 (defmacro make-req-cmd
   [verb & [weight]]
@@ -722,13 +725,10 @@
         (clojure.java.shell/sh
          "git" "rev-parse" "HEAD" :dir "/home/benj/idlegame/")))}}})
 
-
   (def fields (jira-req config :get (str "/rest/api/3/field")))
-
   (first fields)
   (->> fields (filter (comp #{"Commit"} :name)))
-  (->> fields (map :name))
-  )
+  (->> fields (map :name)))
 
 (defn
   prn-issue
@@ -793,18 +793,9 @@
       :issuetype {:name "Bug"}
       :summary "Hurr1"
       :description "saying *lol*"}}})
-
-
   (assign
    (merge
     config
     {:issue "BEN-1743"})
    "Benjamin Schwerdtner")
-
-
-
-
-
-
-
-  )
+  (create-issue! {:in-file "ticket-1.edn"}))

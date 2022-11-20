@@ -5,8 +5,7 @@
  ; Project key.
  :project "COS"
 
- ; Jira username (might be something like "flastname").
- :assignee #env USER
+ :assignee {:accountId "5ace46054fe2de2a7f6302bf"}
 
  ; Type of issue to create.
  :issue-type "Task"

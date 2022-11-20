@@ -1,0 +1,11 @@
+#+title:      2022-11-18
+#+date:       [2022-11-18 Fri 12:42]
+#+filetags:   :journal:
+#+identifier: 20221118T124234
+#+foo:bar
+
+#+begin_src clojure
+  {:fields
+    'fo
+   }
+#+end_src

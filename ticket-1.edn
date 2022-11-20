@@ -1,0 +1,7 @@
+{:fields
+ {
+  ;; :assignee {:accountId assignee}
+  :project {:key "BEN"}
+  :issuetype {:name "Bug"}
+  :summary "Hurr1"
+  :description "saying *lol*\n# hello"}}
