@@ -5,7 +5,10 @@
 #+foo:bar
 
 #+begin_src clojure
-  {:fields
-    'fo
-   }
+{
+  :assignee
+  :project {:key "BEN"}
+  :issuetype {:name "Bug"}
+  :summary "Hurr1"
+  :description "saying *lol*\n# hello"}
 #+end_src
