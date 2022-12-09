@@ -311,7 +311,10 @@
       {:fields (select-keys config [:assignee])}
       (when (fs/exists? in-file)
         #_(def in-file "ticket-1.edn")
-        (read-string (slurp in-file))))})
+        (read-string (slurp in-file)))
+      {:fields (select-keys
+                opts
+                [:assignee :description :project])})})
    show-errors
    :key
    println))
@@ -511,6 +514,7 @@
     ""))
 
 
+
 (def cli-options
   (concat
    [["-h" "--help" "Show usage"]
@@ -697,21 +701,6 @@
    (str "/rest/api/2/search?jql=" (url-encode jql))
    {:query-params {:startAt 0}})
 
-  (def resp *1)
-
-  (keys resp)
-
-  (default-iteration-kf resp)
-  (default-iteration-kf resp)
-
-  (issue-oneline (first (:issues resp)))
-
-  (jira-req
-   config
-   :get
-   (str "/rest/api/2/search?jql=" (url-encode "order by created DESC"))
-   {:query-params {:startAt 0}})
-
   (jira-req
    config
    :put
@@ -739,7 +728,7 @@
     :get
     (str "/rest/api/2/issue/" issue))))
 
-(defn print-users [& _]
+(defn users! [& _]
   (->>
    (jira-req
     config
@@ -748,9 +737,56 @@
    (map
     (fn [{:keys [accountId displayName]}]
       (format "%s - %s" displayName accountId)))
-   (run! println)))
+   (into '())
+   prn))
+
+(defn iteration-params
+  [start-at {:keys [limit]}]
+  (cond->
+      {:query-params {:startAt (or start-at 0)}}
+    limit (assoc :limit limit)))
+
+(defn components-iteration [{:keys [project] :as opts}]
+  (let [project (or (:key project) project)]
+    (sequence
+     cat
+     (iteration (fn [k]
+                  (jira-req
+                   {}
+                   :get
+                   (str "/rest/api/3/project/" project "/component")
+                   (iteration-params k opts)))
+                :vf :values
+                :kf
+                ;; Seems like components pagination is different from the search one
+                ;; as far as I can see I needed (not next) for the search
+                (fn [{:keys [startAt total isLast maxResults _next]}]
+                  (let [last? isLast]
+                    (when-not last?
+                      (min
+                       total
+                       (+ startAt maxResults)))))
+                :somef (comp seq :values)))))
+
+(defn components! [_]
+  (prn (into '()
+             (map :name)
+             (components-iteration config))))
+
+
+;; is an iteration but on our instance we have 300/ 1000
+(defn labels! []
+  (prn
+   (into '()
+         ()
+         (jira-req {} :get (str "/rest/api/3/label")))))
 
 (comment
+  (first (labels!))
+  nil
+  (components!)
+  (users)
+  (first (components-iteration {:project "COS"}))
 
   (spit
    "/tmp/users.edn"
@@ -765,8 +801,6 @@
 
   (filter (comp #{"Benjamin Schwerdtner"} :displayName) *1)
   (def benj-acc *1)
-
-
 
   (jira-req
    config
@@ -798,4 +832,8 @@
     config
     {:issue "BEN-1743"})
    "Benjamin Schwerdtner")
-  (create-issue! {:in-file "ticket-1.edn"}))
+  (create-issue! {:in-file "ticket-1.edn"})
+
+
+
+  )

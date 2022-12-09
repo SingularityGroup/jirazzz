@@ -6,9 +6,11 @@
 
 #+begin_src clojure
 {
-  :assignee
-  :project {:key "BEN"}
-  :issuetype {:name "Bug"}
-  :summary "Hurr1"
-  :description "saying *lol*\n# hello"}
+ :assignee {:accountId "70121:71ad4a4c-8010-4d7a-8c6e-c60b913bba40"}
+ :project {:key "BEN"}
+ :issuetype {:name "Bug"}
+ :summary "Hurr1"
+ :labels
+ :components ["Forge" "Forge" "TableGames"] 
+ :description :below}
 #+end_src

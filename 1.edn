@@ -1,0 +1,1 @@
+{:fields {:project {:key "BEN"}, :issuetype {:name "Bug"}, :summary "Hurr1", :description "h1. lol\n{code:js}\nfo = 10 + 11\nfunction bar () { }\n\n{code}\n\n", :assignee {:accountId "70121:71ad4a4c-8010-4d7a-8c6e-c60b913bba40"}}}

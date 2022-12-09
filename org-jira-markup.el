@@ -1,5 +1,6 @@
 ;; -*- lexical-binding: t; -*-
 
+(require 'ox-md)
 
 (defun org-jira-markup-bold
     (_bold contents _info) "Transcode BOLD object into jira markup format.
@@ -9,15 +10,14 @@ a communication channel."
 
 (defun org-jira-markup--headline-title (level title)
   ""
-  (format "h.%s %s" (number-to-string level) title))
+  (format "h%s. %s\n" (number-to-string level) title))
 
 (defun org-jira-markup-headline (headline contents info)
   "Transcode HEADLINE element into Markdown format.
 CONTENTS is the headline contents.  INFO is a plist used as
 a communication channel."
   (unless (org-element-property :footnote-section-p headline)
-    (let* ((level (+ (org-export-get-relative-level headline info)
-                     (1- (plist-get info :jira-markdown-toplevel-hlevel))))
+    (let* ((level (org-export-get-relative-level headline info))
 	   (title (org-export-data (org-element-property :title headline) info))
 	   (todo (and (plist-get info :with-todo-keywords)
 		      (let ((todo (org-element-property :todo-keyword
@@ -33,11 +33,31 @@ a communication channel."
 		   (and char (format "[#%c] " char)))))
 	   ;; Headline text without tags.
 	   (heading (concat todo priority title)))
-      (concat (org-jira-markdown--headline-title level heading)
+      (concat (org-jira-markup--headline-title level heading)
 	      contents))))
 
+(defun org-jira-markup-verbatim (block &rest _)
+  (format "{noformat} %s {noformat}"
+	  (org-element-property
+	   :value block)))
+
+(defun org-jira-markup-quote (block &rest _)
+  (format "{quote} %s {qutoe}"
+	  (org-element-property
+	   :value block)))
+
+(defun org-jira-markup-src-block (block &rest args)
+  (format
+   "{code:%s}\n%s\n{code}"
+   (org-element-property
+    :language block)
+   (org-element-property
+    :value block)))
+
+(defun org-jira-markup-hoizontal-rule (&rest _) "----")
+
 (org-export-define-derived-backend
-    'jira-markdown 'md
+    'jira-markup 'md
   :filters-alist '((:filter-parse-tree . org-md-separate-elements))
   :menu-entry
   '(?m "Export to Jira Markup"
@@ -49,18 +69,13 @@ a communication channel."
 	      (if a (org-jira-markup-export-as-jira-markup t s v)
 		(org-open-file (org-jira-markdown-export-to-markdown nil s v)))))))
   :translate-alist
-
-  '((bold . org-md-bold)
-    (center-block . org-md--convert-to-html)
+  '((bold . org-jira-markup-bold)
+    ;; (center-block . org-md--convert-to-html)
     (code . org-md-verbatim)
-    (drawer . org-md--identity)
-    (dynamic-block . org-md--identity)
-    (example-block . org-md-example-block)
-    (export-block . org-md-export-block)
-    (fixed-width . org-md-example-block)
-    (headline . org-md-headline)
-    (horizontal-rule . org-md-horizontal-rule)
-    (inline-src-block . org-md-verbatim)
+    (example-block . org-jira-markup-quote)
+    (headline . org-jira-markup-headline)
+    (horizontal-rule . org-jira-markup-hoizontal-rule)
+    ;; (inline-src-block . org-jira-markup-src-block)
     (inlinetask . org-md--convert-to-html)
     (inner-template . org-md-inner-template)
     (italic . org-md-italic)
@@ -78,48 +93,15 @@ a communication channel."
     (quote-block . org-md-quote-block)
     (section . org-md-section)
     (special-block . org-md--convert-to-html)
-    (src-block . org-md-example-block)
+    (src-block . org-jira-markup-src-block)
     (table . org-md--convert-to-html)
     (template . org-md-template)
-    (verbatim . org-md-verbatim))
-
-  ;; '((bold . org-jira-markup-bold)
-  ;;   (code . org-md-verbatim)
-  ;;   (drawer . org-md--identity)
-  ;;   (dynamic-block . org-md--identity)
-  ;;   (example-block . org-md-example-block)
-  ;;   (export-block . org-md-export-block)
-  ;;   (fixed-width . org-md-example-block)
-  ;;   (headline . org-jira-markup-headline)
-  ;;   (horizontal-rule . org-md-horizontal-rule)
-  ;;   (inline-src-block . org-md-verbatim)
-  ;;   (inlinetask . org-md--convert-to-html)
-  ;;   (inner-template . org-md-inner-template)
-  ;;   (italic . org-md-italic)
-  ;;   (item . org-md-item)
-  ;;   (keyword . org-md-keyword)
-  ;;   (latex-environment . org-md-latex-environment)
-  ;;   (latex-fragment . org-md-latex-fragment)
-  ;;   (line-break . org-md-line-break)
-  ;;   (link . org-md-link)
-  ;;   (node-property . org-md-node-property)
-  ;;   (paragraph . org-md-paragraph)
-  ;;   (plain-list . org-md-plain-list)
-  ;;   (plain-text . org-md-plain-text)
-  ;;   (property-drawer . org-md-property-drawer)
-  ;;   (quote-block . org-md-quote-block)
-  ;;   (section . org-md-section)
-  ;;   (special-block . org-md--convert-to-html)
-  ;;   (src-block . org-md-example-block)
-  ;;   (table . org-md--convert-to-html)
-  ;;   (template . org-md-template)
-  ;;   (verbatim . org-md-verbatim))
+    (verbatim . org-jira-markup-verbatim))
   )
 
 (defun org-jira-markup-export-as-jira-markup (&optional async subtreep visible-only)
   ""
   (interactive)
-  (org-export-to-buffer 'jira-markdown "*Org MD Export*"
-    async subtreep visible-only nil nil (lambda () (text-mode))))
-
-(org-jira-markup-export-as-jira-markup)
+  (let ((org-export-with-toc nil))
+    (org-export-to-buffer 'jira-markup "*Org MD Export*"
+      async subtreep visible-only nil nil (lambda () (text-mode)))))
