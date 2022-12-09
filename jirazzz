@@ -307,14 +307,19 @@
     :post
     "/rest/api/2/issue/"
     {:json
-     (merge-deep
-      {:fields (select-keys config [:assignee])}
-      (when (fs/exists? in-file)
-        #_(def in-file "ticket-1.edn")
-        (read-string (slurp in-file)))
-      {:fields (select-keys
-                opts
-                [:assignee :description :project])})})
+     (let [args (merge-deep
+                 {:fields (select-keys config [:assignee])}
+                 (when (fs/exists? in-file)
+                   #_(def in-file "ticket-1.edn")
+                   (read-string (slurp in-file)))
+                 {:fields (select-keys
+                           opts
+                           [:assignee :description :project])})]
+       (-> args
+           (update-in
+            [:fields :components]
+            (fn [components]
+              (into [] (map (fn [e] (if (string? e) {:name e} e))) components)))))})
    show-errors
    :key
    println))
@@ -728,12 +733,15 @@
     :get
     (str "/rest/api/2/issue/" issue))))
 
+(defn users []
+  (jira-req
+   config
+   :get
+   "/rest/api/latest/user/search?query=+&maxResults=1000"))
+
 (defn users! [& _]
   (->>
-   (jira-req
-    config
-    :get
-    "/rest/api/latest/user/search?query=+&maxResults=1000")
+   (users)
    (map
     (fn [{:keys [accountId displayName]}]
       (format "%s - %s" displayName accountId)))
@@ -774,19 +782,28 @@
              (components-iteration config))))
 
 
-;; is an iteration but on our instance we have 300/ 1000
-(defn labels! []
+;; technically an iteration but on our instance we have 300/ 1000
+(defn labels! [_]
   (prn
-   (into '()
-         ()
-         (jira-req {} :get (str "/rest/api/3/label")))))
+   (into
+    '()
+    (:values
+     (jira-req {} :get (str "/rest/api/3/label"))))))
 
 (comment
-  (first (labels!))
+  (labels!)
   nil
   (components!)
   (users)
   (first (components-iteration {:project "COS"}))
+
+  (map
+   :name
+   (:values
+    (jira-req
+     {}
+     :get
+     (str "/rest/api/3/label"))))
 
   (spit
    "/tmp/users.edn"
@@ -832,8 +849,9 @@
     config
     {:issue "BEN-1743"})
    "Benjamin Schwerdtner")
+
   (create-issue! {:in-file "ticket-1.edn"})
 
-
+  (users)
 
   )

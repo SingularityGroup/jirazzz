@@ -12,6 +12,19 @@ a communication channel."
   ""
   (format "h%s. %s\n" (number-to-string level) title))
 
+(defun org-jira-markup--link (link desc info)
+  (let* ((type (org-element-property :type link))
+	(raw-path (org-element-property :path link))
+	(path (cond
+	       ((member type '("http" "https" "ftp" "mailto"))
+		(concat type ":" raw-path))
+	       ((string-equal  type "file")
+		(org-export-file-uri (funcall link-org-files-as-md raw-path)))
+	       (t raw-path))))
+    (if desc
+	(format "[%s|%s]" desc path)
+      (format "[%s]" path))))
+
 (defun org-jira-markup-headline (headline contents info)
   "Transcode HEADLINE element into Markdown format.
 CONTENTS is the headline contents.  INFO is a plist used as
@@ -42,7 +55,7 @@ a communication channel."
 	   :value block)))
 
 (defun org-jira-markup-quote (block &rest _)
-  (format "{quote} %s {qutoe}"
+  (format "{quote} %s {quote}"
 	  (org-element-property
 	   :value block)))
 
@@ -69,6 +82,10 @@ a communication channel."
 	      (if a (org-jira-markup-export-as-jira-markup t s v)
 		(org-open-file (org-jira-markdown-export-to-markdown nil s v)))))))
   :translate-alist
+  ;; I just started implementing some and got bored
+  ;; there is not really a reason for keeping the org-md ones except for reference
+  ;; See ox-md.el for reference, too.
+  ;; If you want something don't hesitate to implement it.
   '((bold . org-jira-markup-bold)
     ;; (center-block . org-md--convert-to-html)
     (code . org-md-verbatim)
@@ -84,7 +101,7 @@ a communication channel."
     (latex-environment . org-md-latex-environment)
     (latex-fragment . org-md-latex-fragment)
     (line-break . org-md-line-break)
-    (link . org-md-link)
+    (link . org-jira-markup--link)
     (node-property . org-md-node-property)
     (paragraph . org-md-paragraph)
     (plain-list . org-md-plain-list)
@@ -96,8 +113,7 @@ a communication channel."
     (src-block . org-jira-markup-src-block)
     (table . org-md--convert-to-html)
     (template . org-md-template)
-    (verbatim . org-jira-markup-verbatim))
-  )
+    (verbatim . org-jira-markup-verbatim)))
 
 (defun org-jira-markup-export-as-jira-markup (&optional async subtreep visible-only)
   ""

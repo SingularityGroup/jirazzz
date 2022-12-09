@@ -1,6 +1,5 @@
 {:fields
- {
-  ;; :assignee {:accountId assignee}
+ {:assignee {:name "CowVillain" :accountId "60bdc5cba1746300703dae5b"}
   :project {:key "BEN"}
   :issuetype {:name "Bug"}
   :summary "Hurr1"

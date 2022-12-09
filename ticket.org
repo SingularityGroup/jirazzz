@@ -4,13 +4,31 @@
 #+identifier: 20221118T124234
 #+foo:bar
 
-#+begin_src clojure
-{
- :assignee {:accountId "70121:71ad4a4c-8010-4d7a-8c6e-c60b913bba40"}
- :project {:key "BEN"}
- :issuetype {:name "Bug"}
- :summary "Hurr1"
- :labels
- :components ["Forge" "Forge" "TableGames"] 
- :description :below}
+#+begin_src jinote-ticket-fields
+  {:assignee {:name "CowVillain" :accountId "70121:71ad4a4c-8010-4d7a-8c6e-c60b913bba40"}
+   :project {:key "BEN"}
+   :issuetype {:name "Bug"}
+   :summary "Hurr1" 
+   :labels ["CryptoAH" "CryptoAH" "CryptoAH" "CryptoAH" "CryptoAH" "Simon"]
+   :components ["Forge" "Forge" "TableGames" "CryptoAH" "CryptoAH" "Achievements"]
+   :description :below}
 #+end_src
+
+* foo
+
+** bar
+
+- lol 345012 
+- lol 678 
+- lol 91011 
+- lol 121314 
+- lol 151617 
+- lol
+
+* hurr
+
+#+begin_example
+foo bar foo bar  
+foo bar foo bar  
+foo bar foo bar  
+#+end_example

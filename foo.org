@@ -21,3 +21,6 @@ hurr
 - one
 - two
 -
+[[https:example.com][foo]]
+
+[[https:hurr]]
