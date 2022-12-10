@@ -1,71 +1,71 @@
 ;; -*- lexical-binding: t; -*-
 
-(defvar jinote-bb-program (executable-find "bb"))
+(defvar org-files-to-jira-bb-program (executable-find "bb"))
 
-(defvar jinote-jiraz-dir nil)
+(defvar org-files-to-jira-jiraz-dir nil)
 
-(setq jinote-jiraz-dir
+(setq org-files-to-jira-jiraz-dir
       (if load-file-name
           (file-name-directory load-file-name)
-        (error "[jinote] fatal: impossible to determine jiraz-path")))
+        (error "[org-files-to-jira] fatal: impossible to determine jiraz-path")))
 
-(defvar jinote-jiraz-config-file "my-jira-config.edn")
+(defvar org-files-to-jira-jiraz-config-file "my-jira-config.edn")
 
-(defmacro jinote-jiraz-env (&rest body)
+(defmacro org-files-to-jira-jiraz-env (&rest body)
   `(let
-       ((default-directory jinote-jiraz-dir)
+       ((default-directory org-files-to-jira-jiraz-dir)
 	(process-environment
 	 (cons
 	  (concat
-	   "JIRAZZZ_CONFIG_FILE=" jinote-jiraz-config-file)
+	   "JIRAZZZ_CONFIG_FILE=" org-files-to-jira-jiraz-config-file)
 	  process-environment)))
      ,@body))
 
-(defun jinote-output-line (&rest args)
-  (car (jinote-jiraz-env
+(defun org-files-to-jira-output-line (&rest args)
+  (car (org-files-to-jira-jiraz-env
 	(apply
 	 #'process-lines
-	 `(,jinote-bb-program
+	 `(,org-files-to-jira-bb-program
 	   "--init"
 	   "./jirazzz"
 	   "-x"
 	   ,@args)))))
 
-(defun jinote-output-1 (&rest args)
+(defun org-files-to-jira-output-1 (&rest args)
   (car (read-from-string
-	(apply #'jinote-output-line args))))
+	(apply #'org-files-to-jira-output-line args))))
 
-(defun jinote-memoize (op)
+(defun org-files-to-jira-memoize (op)
   (let ((map (make-hash-table :test 'equal)))
     (lambda (&rest args)
       (or
        (gethash args map)
        (puthash args (apply op args) map)))))
 
-(defvar jinote-components
-  (jinote-memoize
+(defvar org-files-to-jira-components
+  (org-files-to-jira-memoize
    (lambda ()
-     (jinote-output-1
+     (org-files-to-jira-output-1
       "jirazzz/components!"))))
 
-(defvar jinote-labels
-  (jinote-memoize
+(defvar org-files-to-jira-labels
+  (org-files-to-jira-memoize
    (lambda ()
-     (jinote-output-1
+     (org-files-to-jira-output-1
       "jirazzz/labels!"))))
 
-(defvar jinote-users
-  (jinote-memoize
+(defvar org-files-to-jira-users
+  (org-files-to-jira-memoize
    (lambda ()
-     (jinote-output-1
+     (org-files-to-jira-output-1
       "jirazzz/users!"))))
 
-(defun jinote--create-issue (args)
+(defun org-files-to-jira--create-issue (args)
   "Make a jira issue, return the issue key on success.
 ARGS is a plist."
-  (jinote-jiraz-env
+  (org-files-to-jira-jiraz-env
    (process-lines
-    jinote-bb-program
+    org-files-to-jira-bb-program
     "--init"
     "./jirazzz"
     "-x"
@@ -82,7 +82,7 @@ ARGS is a plist."
     ticket-fields))
 
 
-(defun jinote-org-export-to-jira-markup ()
+(defun org-files-to-jira-org-export-to-jira-markup ()
   "Return the jira markup string of the current org buffer."
   (save-restriction
     (let ((b (current-buffer)))
@@ -111,7 +111,7 @@ ARGS is a plist."
 	      t)))
 	(buffer-string)))))
 
-(defun jinote--user (user-string)
+(defun org-files-to-jira--user (user-string)
   "Returns (NAME . ID) or USER-STRING."
   (when (string-match
 	 "\\(.+?\\) - \\(.+?\\)$"
@@ -120,13 +120,13 @@ ARGS is a plist."
      (match-string 1 user-string)
      (match-string 2 user-string))))
 
-(defun jinote-user-name (user-string)
-  (car (jinote--user user-string)))
+(defun org-files-to-jira-user-name (user-string)
+  (car (org-files-to-jira--user user-string)))
 
-(defun jinote-user-id (user-string)
-  (cdr (jinote--user user-string)))
+(defun org-files-to-jira-user-id (user-string)
+  (cdr (org-files-to-jira--user user-string)))
 
-(defun jinote-transform-fields-block
+(defun org-files-to-jira-transform-fields-block
     (op)
   "OP update and returns the ticket-fields (a hashmap)."
   ;; insert one if none
@@ -147,29 +147,29 @@ ARGS is a plist."
 	    (replace-match "\n")))))
     ticket-fields))
 
-(defun jinote-set-assigne ()
-  (jinote-transform-fields-block
+(defun org-files-to-jira-set-assigne ()
+  (org-files-to-jira-transform-fields-block
    (lambda (fields)
      (puthash
       :assignee
       `(:accountId
-	,(jinote-user-id
+	,(org-files-to-jira-user-id
 	  (completing-read
 	   "Assignee: "
-	   (funcall jinote-users))))
+	   (funcall org-files-to-jira-users))))
       fields)
      fields)))
 
-(defun jinote-make-ticket ()
-  "Make a ticket with current jinote buffer."
+(defun org-files-to-jira-make-ticket ()
+  "Make a ticket with current org-files-to-jira buffer."
   (interactive)
-  (-let* ((temp-file (make-temp-file "jinote-ticket" nil ".edn"))
+  (-let* ((temp-file (make-temp-file "org-files-to-jira-ticket" nil ".edn"))
 	  (tkt (ticket-fiels))
 	  ((&hash :description description) tkt))
     (pcase description
       (:below
        (puthash :description
-		(jinote-org-export-to-jira-markup)
+		(org-files-to-jira-org-export-to-jira-markup)
 		tkt))
       (_ nil))
     (with-current-buffer
@@ -177,7 +177,7 @@ ARGS is a plist."
       (parseedn-print
        `(:fields ,tkt))
       (save-buffer))
-    (let ((ticket (jinote-output-line
+    (let ((ticket (org-files-to-jira-output-line
 		   "jirazzz/create-issue!"
 		   ":in-file"
 		   temp-file)))
@@ -185,7 +185,7 @@ ARGS is a plist."
 	(user-error "Did not work: %s" temp-file))
       (message "jira: %s" ticket))))
 
-(defun jinote-delete-what-you-just-said (str)
+(defun org-files-to-jira-delete-what-you-just-said (str)
   (delete-region
    (save-excursion
      (forward-char
@@ -193,7 +193,7 @@ ARGS is a plist."
      (point))
    (point)))
 
-(defun jinote-insert-into-vec-or-make-one (str)
+(defun org-files-to-jira-insert-into-vec-or-make-one (str)
   (let ((v (or
 	    (save-excursion
 	      (beginning-of-line)
@@ -224,19 +224,19 @@ ARGS is a plist."
 	  (cl-coerce v 'list)
 	  (list str))))))))
 
-(defun jinote-fields--completion (symbol)
+(defun org-files-to-jira-fields--completion (symbol)
   (pcase
       symbol
     (:accountId (list
 		 (completion-table-dynamic
-		  (lambda (_) (funcall jinote-users)))
+		  (lambda (_) (funcall org-files-to-jira-users)))
 		 :exit-function (lambda (str status)
-				  (jinote-delete-what-you-just-said
+				  (org-files-to-jira-delete-what-you-just-said
 				   str)
 				  (insert
 				   (format
 				    "\"%s\""
-				    (jinote-user-id str))))))
+				    (org-files-to-jira-user-id str))))))
     (:description (list
 		   (completion-table-dynamic
 		    (lambda (_) '(":below")))))
@@ -249,51 +249,51 @@ ARGS is a plist."
 		    (file-name-base (buffer-name))))))))
     (:assignee (list
 		(completion-table-dynamic
-		  (lambda (_) (funcall jinote-users)))
+		  (lambda (_) (funcall org-files-to-jira-users)))
 		:exit-function (lambda (str status)
-				 (jinote-delete-what-you-just-said
+				 (org-files-to-jira-delete-what-you-just-said
 				  str)
 				 (insert
 				  (format
 				   "{:name \"%s\" :accountId \"%s\"}"
-				   (jinote-user-name str)
-				   (jinote-user-id str))))))
+				   (org-files-to-jira-user-name str)
+				   (org-files-to-jira-user-id str))))))
     (:labels (list
-	      (completion-table-dynamic jinote-labels)
+	      (completion-table-dynamic org-files-to-jira-labels)
 	      :exit-function (lambda (str status)
-			       (jinote-delete-what-you-just-said
+			       (org-files-to-jira-delete-what-you-just-said
 				str)
-			       (jinote-insert-into-vec-or-make-one str))))
+			       (org-files-to-jira-insert-into-vec-or-make-one str))))
     (:components
      (list
-      (completion-table-dynamic jinote-components)
+      (completion-table-dynamic org-files-to-jira-components)
       :exit-function
       (lambda (str status)
-	(jinote-delete-what-you-just-said str)
-	(jinote-insert-into-vec-or-make-one str))))
+	(org-files-to-jira-delete-what-you-just-said str)
+	(org-files-to-jira-insert-into-vec-or-make-one str))))
     (_ nil)))
 
-(defun jinote-symbol-before ()
+(defun org-files-to-jira-symbol-before ()
   (save-excursion
     (forward-symbol -1)
     (symbol-at-point)))
 
-(defun jinote-symbol-bol ()
+(defun org-files-to-jira-symbol-bol ()
   (save-excursion
     (beginning-of-line)
     (forward-char
      (current-indentation))
     (symbol-at-point)))
 
-(defun jinote-ticket-fields-capf ()
+(defun org-files-to-jira-ticket-fields-capf ()
   (when-let*
       ((p (point))
        (completion
 	(or
-	 (jinote-fields--completion
-	  (jinote-symbol-before))
-	 (jinote-fields--completion
-	  (jinote-symbol-bol))
+	 (org-files-to-jira-fields--completion
+	  (org-files-to-jira-symbol-before))
+	 (org-files-to-jira-fields--completion
+	  (org-files-to-jira-symbol-bol))
 	 (list
 	  (completion-table-dynamic
 	   (lambda (_)
@@ -309,10 +309,10 @@ ARGS is a plist."
 	       ":labels")))))))
     `(,p ,p ,@completion)))
 
-(define-derived-mode jinote-ticket-fields-mode
+(define-derived-mode org-files-to-jira-ticket-fields-mode
   clojure-mode
-  "Jinote ticket"
-  "Mode for modifying jinote ticket fields."
+  "Jinote (org-files-to-jira) ticket"
+  "Mode for modifying org-files-to-jira ticket fields."
   (add-hook
    'completion-at-point-functions
-   #'jinote-ticket-fields-capf nil t))
+   #'org-files-to-jira-ticket-fields-capf nil t))
