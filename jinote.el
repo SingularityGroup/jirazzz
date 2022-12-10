@@ -2,14 +2,22 @@
 
 (defvar jinote-bb-program (executable-find "bb"))
 
-(defvar jinote-jiraz-dir "/home/benj/repos/sg/jirazzz/")
+(defvar jinote-jiraz-dir nil)
+
+(setq jinote-jiraz-dir
+      (if load-file-name
+          (file-name-directory load-file-name)
+        (error "[jinote] fatal: impossible to determine jiraz-path")))
+
+(defvar jinote-jiraz-config-file "my-jira-config.edn")
 
 (defmacro jinote-jiraz-env (&rest body)
   `(let
        ((default-directory jinote-jiraz-dir)
 	(process-environment
 	 (cons
-	  "JIRAZZZ_CONFIG_FILE=my-jira-config.edn"
+	  (concat
+	   "JIRAZZZ_CONFIG_FILE=" jinote-jiraz-config-file)
 	  process-environment)))
      ,@body))
 
@@ -25,11 +33,9 @@
 
 (defun jinote-output-1 (&rest args)
   (car (read-from-string
-	(apply
-	 #'jinote-output-line
-	 args))))
+	(apply #'jinote-output-line args))))
 
-(defun memoize (op)
+(defun jinote-memoize (op)
   (let ((map (make-hash-table :test 'equal)))
     (lambda (&rest args)
       (or
@@ -37,19 +43,19 @@
        (puthash args (apply op args) map)))))
 
 (defvar jinote-components
-  (memoize
+  (jinote-memoize
    (lambda ()
      (jinote-output-1
       "jirazzz/components!"))))
 
 (defvar jinote-labels
-  (memoize
+  (jinote-memoize
    (lambda ()
      (jinote-output-1
       "jirazzz/labels!"))))
 
 (defvar jinote-users
-  (memoize
+  (jinote-memoize
    (lambda ()
      (jinote-output-1
       "jirazzz/users!"))))
