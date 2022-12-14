@@ -13,6 +13,7 @@
    [clojure.edn :as edn]
    [clojure.string :as string]
    [clojure.tools.cli :as cli]
+   [clojure.java.browse :as browse]
    [org.httpkit.client :as http]
    [selmer.parser :as selmer]
    [selmer.util :as selmer-util])
@@ -325,7 +326,18 @@
            (update-in
             [:fields :components]
             (fn [components]
-              (into [] (map (fn [e] (if (string? e) {:name e} e))) components)))))})
+              (into [] (map (fn [e] (if (string? e) {:name e} e))) components)))
+           (update-in [:fields :project] (fn [e] (if (string? e) {:key e} e)))
+           (update-in [:fields :issuetype :name] (fn [name] (or name (-> args :fields :issue-type))))
+           (update :fields
+                   (fn [fields]
+                     (select-keys fields [:assignee
+                                          :summary
+                                          :description
+                                          :project
+                                          :issuetype
+                                          :components
+                                          :labels])))))})
    show-errors
    :key
    println))
@@ -725,6 +737,14 @@
     (:values
      (jira-req {} :get (str "/rest/api/3/label"))))))
 
+(defn browse-ticket! [{:keys [] input}]
+  (let [key
+        (if (string/starts-with? input "https") key)]
+    (browse/browse-url
+     (if (string/starts-with? input "https")
+       input
+       (jira-url config (str "/browse/" input))))))
+
 (comment
   (jira-req
    config
@@ -744,6 +764,7 @@
     {:issue "BEN-1743"})
    "Benjamin Schwerdtner")
   (create-issue! {:in-file "ticket-1.edn"})
+  (create-issue! {:in-file "/tmp/org-files-to-jira-ticketoSkMXL.edn" })
   (users))
 
 (when (= *file* (System/getProperty "babashka.file"))
