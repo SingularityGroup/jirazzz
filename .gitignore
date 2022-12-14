@@ -1,3 +1,4 @@
 .clj-kondo/.cache
 /.nrepl-port
 /.cpcache/
+my-jira-config.edn

@@ -12,9 +12,15 @@ The emacs integration is reified in `org-files-to-jira.el`.
 ## Quick start
 
 1.
-```shell
 
+```shell
+git clone git@github.com:SingularityGroup/jirazzz.git sg-jiraz
 ```
+
+2. use `my-jira-config.edn` as template.
+Either modify that in place
+or put it into `~/.jirazzz.edn`
+
 
 ## Concepts
 
