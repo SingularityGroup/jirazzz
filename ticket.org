@@ -1,11 +1,7 @@
-#+title:      2022-11-18
-#+date:       [2022-11-18 Fri 12:42]
-#+filetags:   :journal:
-#+identifier: 20221118T124234
-#+foo:bar
+#titile foo
 
 #+begin_src jinote-ticket-fields
-  {:assignee {:name "CowVillain" :accountId "70121:71ad4a4c-8010-4d7a-8c6e-c60b913bba40"}
+  {:assignee {:name "Benjamin Schwerdtner" :accountId "5ace46054fe2de2a7f6302bf"}
    :project {:key "BEN"}
    :issuetype {:name "Bug"}
    :summary "Hurr1" 

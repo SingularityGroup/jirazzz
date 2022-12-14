@@ -1,6 +1,14 @@
 {
  ; URL prefix of your jira instance.
  :url "https://singularitygroup.atlassian.net"
+ :get-creds
+ ;; command + args how to return your jira api token
+ ;; not recommended plain file on you pc
+ ;; ["cat" "my-jira-token"]
+ ;; using pass with style
+ ["pass" "jira-api-token"]
+ 
+ :jira-user "Benjamin.Schwerdtner@gmail.com"
 
  ; Project key.
  :project "COS"

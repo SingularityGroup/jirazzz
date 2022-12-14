@@ -1,6 +1,13 @@
+;;; org-jira-markup.el --- Export org to jira markup
 ;; -*- lexical-binding: t; -*-
 
+
+;;; Commentary:
+;;
+
 (require 'ox-md)
+
+;;; Code:
 
 (defun org-jira-markup-bold
     (_bold contents _info) "Transcode BOLD object into jira markup format.
@@ -121,3 +128,7 @@ a communication channel."
   (let ((org-export-with-toc nil))
     (org-export-to-buffer 'jira-markup "*Org MD Export*"
       async subtreep visible-only nil nil (lambda () (text-mode)))))
+
+(provide 'org-jira-markup)
+
+;;; org-jira-markup.el ends here

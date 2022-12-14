@@ -1,4 +1,13 @@
+;;; org-files-to-jira.el --- Make jira cards from org files.
 ;; -*- lexical-binding: t; -*-
+
+;;; Commentary:
+;; Define jira cards in an org file, make jira cards using jirazzz, which is included in this software.
+
+
+;;; Code:
+
+(require 'org-jira-markup)
 
 (defvar org-files-to-jira-bb-program (executable-find "bb"))
 
@@ -9,9 +18,12 @@
           (file-name-directory load-file-name)
         (error "[org-files-to-jira] fatal: impossible to determine jiraz-path")))
 
-(defvar org-files-to-jira-jiraz-config-file "my-jira-config.edn")
+(defvar org-files-to-jira-jiraz-config-file (expand-file-name
+					     "my-jira-config.edn"
+					     org-files-to-jira-jiraz-dir))
 
 (defmacro org-files-to-jira-jiraz-env (&rest body)
+  "Setup `process-environment' for a jiraz program call and execute BODY."
   `(let
        ((default-directory org-files-to-jira-jiraz-dir)
 	(process-environment
@@ -22,6 +34,8 @@
      ,@body))
 
 (defun org-files-to-jira-output-line (&rest args)
+  "Return the first line of jiraz output.
+Call jiraz with ARGS, which should start with a function symbol."
   (car (org-files-to-jira-jiraz-env
 	(apply
 	 #'process-lines
@@ -32,6 +46,7 @@
 	   ,@args)))))
 
 (defun org-files-to-jira-output-1 (&rest args)
+  "Call `org-files-to-jira-output-line' with ARGS and read it as lisp data."
   (car (read-from-string
 	(apply #'org-files-to-jira-output-line args))))
 
@@ -130,22 +145,37 @@ ARGS is a plist."
     (op)
   "OP update and returns the ticket-fields (a hashmap)."
   ;; insert one if none
-  (let ((ticket-fields))
-    (org-babel-map-src-blocks
-	(buffer-file-name)
-      (unless ticket-fields
-	(setf
-	 ticket-fields
-	 (funcall op (parseedn-read-str body)))
-	(delete-region beg-body end-body)
-	(goto-char beg-body)
-	(insert (parseedn-print-str ticket-fields))
-	(insert "\n")
-	(let ((end (point-marker)))
-	  (goto-char beg-body)
-	  (while (re-search-forward "," nil t)
-	    (replace-match "\n")))))
-    ticket-fields))
+  (cl-labels ((insert-1 (ticket-fields beg)
+			(defvar my-ticket-fields ticket-fields)
+			(insert (parseedn-print-str ticket-fields))
+			(insert "\n")
+			(let ((end (point-marker)))
+			  (goto-char beg)
+			  (while (re-search-forward "," nil t)
+			    (replace-match "\n"))
+			  (goto-char end))))
+    (if (not
+	 (save-excursion
+	   (re-search-forward
+	    "#\\+begin_src jinote-ticket-fields" nil t)))
+	(save-excursion
+	  (goto-char (point-min))
+	  (open-line 1)
+	  (insert "#+begin_src jinote-ticket-fields\n")
+	  (defvar my-m-2 (funcall op (parseedn-read-str "{}")))
+	  (insert-1 (funcall op (parseedn-read-str "{}")) (point))
+	  (insert "#+end_src\n"))
+      (let ((ticket-fields))
+	(org-babel-map-src-blocks
+	    (buffer-file-name)
+	  (unless ticket-fields
+	    (setf
+	     ticket-fields
+	     (funcall op (parseedn-read-str body)))
+	    (delete-region beg-body end-body)
+	    (goto-char beg-body)
+	    (insert-1 (funcall op ticket-fields))))
+	ticket-fields))))
 
 (defun org-files-to-jira-set-assigne ()
   (org-files-to-jira-transform-fields-block
@@ -316,3 +346,42 @@ ARGS is a plist."
   (add-hook
    'completion-at-point-functions
    #'org-files-to-jira-ticket-fields-capf nil t))
+
+(defun org-files-to-jira-create-1 (&optional file)
+  "Create a jira card. Assume that FILE contains field edn."
+  (interactive "fticket-fields edn:")
+  (org-files-to-jira-output-line
+   "jirazzz/create-issue!"
+   ":in-file"
+   file))
+
+(defun org-files-to-jira-select-keys (m keys)
+  (cl-loop for key being the hash-keys of m
+	   when (not (member key keys))
+	   do
+	   (remhash key m))
+  m)
+
+(defun org-files-to-jira-make-org-file (&optional file)
+  "Insert a org-files-to-jira source block,
+create FILE if it does not exist."
+  (interactive)
+  (let ((file (or file (buffer-file-name))))
+    (with-current-buffer (find-file file)
+      (org-files-to-jira-transform-fields-block
+       (lambda (m1)
+	 (if
+	     (gethash :project m1)
+	     m1
+	   (with-current-buffer
+	       (find-file-noselect org-files-to-jira-jiraz-config-file)
+	     (goto-char (point-min))
+	     (org-files-to-jira-select-keys
+	      (car (parseedn-read))
+	      '(:project
+		:assignee
+		:issue-type)))))))))
+
+(provide 'org-files-to-jira)
+
+;;; org-files-to-jira.el ends here

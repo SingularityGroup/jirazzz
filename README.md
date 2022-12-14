@@ -1,4 +1,59 @@
+# Emacs integration
+
+I wanted to make jira cards from emacs. This is a fork of jirazzz.
+I hacked in some functionality I wanted (sort of half baked source
+code, but it works).
+The emacs integration is reified in `org-files-to-jira.el`.
+
+## Dependencies
+
+- [babashka][babashka]
+
+## Quick start
+
+1.
+```shell
+
+```
+
+## Concepts
+
+### org-jira-markup
+
+This is an org exporter for jira markup.
+If you find anything missing please don't hesitate to make a pr.
+
+### org-files-to-jira-ticket-fields-mode
+
+This mode is for editing the edn representation of a jira card.
+You can enable this mode in a file with similar contents to this:
+
+It adds to completion-at-point-functions so you can type fields,
+labels etc.
+
+
+1. Visit an org file
+2. Use
+
+#### edn only case
+
+```shell
+cat << EOF > 1.edn
+ {:fields
+  {:project {:key "BEN"}
+   :issuetype {:name "Bug"}
+   :summary "Hurr1"
+   :description "saying *lol*\n# hello"}}
+EOF
+```
+
+You can visit 1.edn, make adjustments, then
+you can do `M-x` `org-files-to-jira-create-1`, select `1.edn`.
+
 # jirazzz
+
+Benjamin: I added a few functions that are currently not documented.
+You will need to look at the `jirazzz` source code.
 
 A jira rest client command line app written as a [babashka][babashka] script.
 

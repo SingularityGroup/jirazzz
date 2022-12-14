@@ -39,11 +39,15 @@
 
 (def HOME (env "HOME"))
 
-(def config-file
-  "my-jira-config.edn"
-  ;; (or (env "JIRAZZZ_CONFIG_FILE")
-  ;;     (fs/path HOME ".jirazzz.edn"))
-  )
+(def
+  config-file
+  (or
+   (env "JIRAZZZ_CONFIG_FILE")
+   (when
+       (fs/exists?
+        "my-jira-config.edn")
+       "my-jira-config.edn")
+   (fs/path HOME ".jirazzz.edn")))
 
 (def config-dir
   (-> config-file
@@ -83,13 +87,15 @@
         (filter second))))
 
 (def config
-  (merge-deep
-   default-config
-   (when (fs/exists? config-file)
-     (-> config-file str slurp read-edn))
-   from-env
-   {:jira-token (string/trim (:out (shell/sh "pass" "jira-api-token")))
-    :jira-user "Benjamin.Schwerdtner@gmail.com"}))
+  (let [config (merge-deep
+                default-config
+                (when (fs/exists? config-file)
+                  (-> config-file str slurp read-edn))
+                from-env)
+        creds
+        (string/trim
+         (:out (apply shell/sh (:get-creds config))))]
+    (assoc config :jira-token creds)))
 
 (defn maybe-string
   [s]
@@ -498,7 +504,8 @@
   (->> (search-iteration opts)
        (map issue-oneline)
        (run! println)))
-                                        ; https://support.atlassian.com/jira-software-cloud/docs/advanced-search-reference-jql-fields/
+
+;; https://support.atlassian.com/jira-software-cloud/docs/advanced-search-reference-jql-fields/
 (defn search
   {:command 'search
    :doc "Search issues: jirazzz search \"some jql fragment\""}
@@ -517,8 +524,6 @@
                    "browse url" (jira-url opts (str "/browse/" key))}))
            (pprint/print-table)))
     ""))
-
-
 
 (def cli-options
   (concat
@@ -655,75 +660,6 @@
           (exit 1))
         (throw e)))))
 
-;; (when (= *file* (System/getProperty "babashka.file"))
-;;   (-main *command-line-args*))
-
-(comment
-  (jira-req
-   config
-   :post
-   "/rest/api/2/issue/"
-   {:json
-    {:fields
-     {:assignee
-      {:accountId "5ace46054fe2de2a7f6302bf"}
-      :project {:key "BEN"}
-      :issuetype {:name "Bug"}
-      :summary "Hurr1"
-      :description "saying *lol*"}}}))
-
-(defn jql-oneline []
-
-  )
-
-(defn foo [m]
-  (m prn))
-
-(comment
-
-  (def jql "issuekey in issueHistory() order by lastViewed DESC")
-
-  (def it
-    (sequence
-     cat
-     (iteration
-      (fn [k]
-        (jira-req
-         config
-         :get
-         (str "/rest/api/2/search?jql=" (url-encode jql))
-         {:query-params
-          {:startAt (or k 0)}}))
-      :vf :issues
-      :kf default-iteration-kf
-      :somef (comp seq :issues))))
-
-  (map :key (take 10 it))
-
-  (jira-req
-   config
-   :get
-   (str "/rest/api/2/search?jql=" (url-encode jql))
-   {:query-params {:startAt 0}})
-
-  (jira-req
-   config
-   :put
-   (str "/rest/api/2/issue/"
-        "COS-102129")
-   {:json
-    {:fields
-     {"customfield_10030"
-      (string/trim
-       (:out
-        (clojure.java.shell/sh
-         "git" "rev-parse" "HEAD" :dir "/home/benj/idlegame/")))}}})
-
-  (def fields (jira-req config :get (str "/rest/api/3/field")))
-  (first fields)
-  (->> fields (filter (comp #{"Commit"} :name)))
-  (->> fields (map :name)))
-
 (defn
   prn-issue
   [{:keys [key]}]
@@ -781,7 +717,6 @@
              (map :name)
              (components-iteration config))))
 
-
 ;; technically an iteration but on our instance we have 300/ 1000
 (defn labels! [_]
   (prn
@@ -791,47 +726,6 @@
      (jira-req {} :get (str "/rest/api/3/label"))))))
 
 (comment
-  (labels!)
-  nil
-  (components!)
-  (users)
-  (first (components-iteration {:project "COS"}))
-
-  (map
-   :name
-   (:values
-    (jira-req
-     {}
-     :get
-     (str "/rest/api/3/label"))))
-
-  (spit
-   "/tmp/users.edn"
-   (prn-str
-    (->>
-     (jira-req
-      config
-      :get
-      "/rest/api/latest/user/search?query=+&maxResults=1000")
-     (map
-      (juxt :displayName :accountId)))))
-
-  (filter (comp #{"Benjamin Schwerdtner"} :displayName) *1)
-  (def benj-acc *1)
-
-  (jira-req
-   config
-   :post
-   "/rest/api/2/issue/"
-   {:json
-    {:fields
-     {:assignee
-      {:accountId "5ace46054fe2de2a7f6302bf"}
-      :project {:key "BEN"}
-      :issuetype {:name "Bug"}
-      :summary "Hurr1"
-      :description "saying *lol*"}}})
-
   (jira-req
    config
    :post
@@ -849,9 +743,8 @@
     config
     {:issue "BEN-1743"})
    "Benjamin Schwerdtner")
-
   (create-issue! {:in-file "ticket-1.edn"})
+  (users))
 
-  (users)
-
-  )
+(when (= *file* (System/getProperty "babashka.file"))
+  (-main *command-line-args*))
