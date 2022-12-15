@@ -37,7 +37,6 @@
 	  process-environment)))
      ,@body))
 
-
 (defun org-files-to-jira-process-lines (program args)
   "Execute PROGRAM with ARGS, returning its output as a list of lines.
 Pop to the process buffer, if non 0 exit."
@@ -75,41 +74,28 @@ Call jiraz with ARGS, which should start with a function symbol."
   (car (read-from-string
 	(apply #'org-files-to-jira-output-line args))))
 
-(defun org-files-to-jira-memoize (op)
-  (let ((map (make-hash-table :test 'equal)))
+(defun org-files-to-jira-memoize-without-args (op)
+  (let ((val))
     (lambda (&rest args)
-      (or
-       (gethash args map)
-       (puthash args (apply op args) map)))))
+      (or val (setf val (apply op args))))))
 
 (defvar org-files-to-jira-components
-  (org-files-to-jira-memoize
-   (lambda ()
+  (org-files-to-jira-memoize-without-args
+   (lambda (&rest _)
      (org-files-to-jira-output-1
       "jirazzz/components!"))))
 
 (defvar org-files-to-jira-labels
-  (org-files-to-jira-memoize
-   (lambda ()
+  (org-files-to-jira-memoize-without-args
+   (lambda (&rest _)
      (org-files-to-jira-output-1
       "jirazzz/labels!"))))
 
 (defvar org-files-to-jira-users
-  (org-files-to-jira-memoize
-   (lambda ()
+  (org-files-to-jira-memoize-without-args
+   (lambda (&rest _)
      (org-files-to-jira-output-1
       "jirazzz/users!"))))
-
-(defun org-files-to-jira--create-issue (args)
-  "Make a jira issue, return the issue key on success.
-ARGS is a plist."
-  (org-files-to-jira-jiraz-env
-   (process-lines
-    org-files-to-jira-bb-program
-    "--init"
-    "./jirazzz"
-    "-x"
-    "jirazzz/create-issue!")))
 
 (defun ticket-fiels ()
   (let ((ticket-fields))
@@ -120,7 +106,6 @@ ARGS is a plist."
 	 ticket-fields
 	 (parseedn-read-str body))))
     ticket-fields))
-
 
 (defun org-files-to-jira-org-export-to-jira-markup ()
   "Return the jira markup string of the current org buffer."
@@ -231,7 +216,8 @@ ARGS is a plist."
 	(find-file-noselect temp-file)
       (parseedn-print
        `(:fields ,tkt))
-      (save-buffer))
+      (let ((save-silently t))
+	(save-buffer)))
     temp-file))
 
 (defun org-files-to-jira-data-file ()
@@ -245,8 +231,23 @@ Pop to that file and nothing else."
   (interactive)
   (let ((temp-file (org-files-to-jira-temp-file)))
     (unwind-protect
-	(org-files-to-jira-create-ticket-file
-	 temp-file)
+	(save-excursion
+	  (progn
+	    (org-files-to-jira-create-ticket-file
+	     temp-file)
+	    (let ((ticket (org-files-to-jira-output-line
+			   "jirazzz/create-issue!"
+			   ":in-file"
+			   temp-file)))
+	      (unless ticket
+		(user-error "Did not work: %s" temp-file))
+	      (message "jira: %s" ticket)
+	      (when
+		  org-files-to-jira-browse-on-create
+		(org-files-to-jira-output-line
+		 "jirazzz/browse-ticket!"
+		 ":input"
+		 ticket)))))
       (when (file-exists-p temp-file)
 	(delete-file temp-file)))))
 
@@ -381,14 +382,6 @@ Pop to that file and nothing else."
   (add-hook
    'completion-at-point-functions
    #'org-files-to-jira-ticket-fields-capf nil t))
-
-(defun org-files-to-jira-create-1 (&optional file)
-  "Create a jira card. Assume that FILE contains field edn."
-  (interactive "fticket-fields edn:")
-  (org-files-to-jira-output-line
-   "jirazzz/create-issue!"
-   ":in-file"
-   file))
 
 (defun org-files-to-jira-select-keys (m keys)
   (cl-loop for key being the hash-keys of m

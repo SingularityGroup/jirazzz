@@ -29,7 +29,7 @@
   [n]
   (throw
    (ex-info "Error condition. see logs above."
-            {:babashka/exit 1})))
+            {:babashka/exit n})))
 
 ; config
 (defn env
@@ -679,7 +679,7 @@
    (jira-req
     config
     :get
-    (str "/rest/api/2/issue/" issue))))
+    (str "/rest/api/2/issue/" key))))
 
 (defn users []
   (jira-req
@@ -735,17 +735,17 @@
    (into
     '()
     (:values
-     (jira-req {} :get (str "/rest/api/3/label"))))))
+     (show-errors
+      (jira-req {} :get (str "/rest/api/3/label")))))))
 
-(defn browse-ticket! [{:keys [] input}]
-  (let [key
-        (if (string/starts-with? input "https") key)]
-    (browse/browse-url
-     (if (string/starts-with? input "https")
-       input
-       (jira-url config (str "/browse/" input))))))
+(defn browse-ticket! [{:keys [input]}]
+  (browse/browse-url
+   (if (string/starts-with? input "https")
+     input
+     (jira-url config (str "/browse/" input)))))
 
 (comment
+  (labels! nil)
   (jira-req
    config
    :post
