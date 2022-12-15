@@ -421,9 +421,3 @@ create FILE if it does not exist."
 (provide 'org-files-to-jira)
 
 ;;; org-files-to-jira.el ends here
-
-
-;; (org-files-to-jira-output-line
-;;  "jirazzz/browse-ticket!"
-;;  ":input"
-;;  "COS-144093")
