@@ -1,5 +1,4 @@
-;;; org-files-to-jira.el --- Make jira cards from org files.
-;; -*- lexical-binding: t; -*-
+;;; org-files-to-jira.el --- Make jira cards from org files.  -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 ;; Define jira cards in an org file, make jira cards using jirazzz, which is included in this software.
@@ -8,8 +7,13 @@
 ;;; Code:
 
 (require 'org-jira-markup)
+(require 'parseedn)
+(require 'clojure-mode)
 
 (defvar org-files-to-jira-bb-program (executable-find "bb"))
+
+(defvar org-files-to-jira-browse-on-create t
+  "Wheter to browse a ticket when you create it.")
 
 (defvar org-files-to-jira-jiraz-dir nil)
 
@@ -33,17 +37,38 @@
 	  process-environment)))
      ,@body))
 
+
+(defun org-files-to-jira-process-lines (program args)
+  "Execute PROGRAM with ARGS, returning its output as a list of lines.
+Pop to the process buffer, if non 0 exit."
+  (with-current-buffer (get-buffer-create "*org-files-to-jira-bb*")
+    (let ((inhibit-read-only t))
+      (erase-buffer))
+    (let ((status (apply #'call-process program nil (current-buffer) nil args)))
+      (unless (eq status 0)
+	(pop-to-buffer (current-buffer))
+	(error "%s exited with status %s" program status))
+      (goto-char (point-min))
+      (let (lines)
+	(while (not (eobp))
+	  (setq lines (cons (buffer-substring-no-properties
+			     (line-beginning-position)
+			     (line-end-position))
+			    lines))
+	  (forward-line 1))
+	(nreverse lines)))))
+
 (defun org-files-to-jira-output-line (&rest args)
   "Return the first line of jiraz output.
 Call jiraz with ARGS, which should start with a function symbol."
-  (car (org-files-to-jira-jiraz-env
-	(apply
-	 #'process-lines
-	 `(,org-files-to-jira-bb-program
-	   "--init"
-	   "./jirazzz"
-	   "-x"
-	   ,@args)))))
+  (car
+   (org-files-to-jira-jiraz-env
+    (org-files-to-jira-process-lines
+     org-files-to-jira-bb-program
+     `("--init"
+       "./jirazzz"
+       "-x"
+       ,@args)))))
 
 (defun org-files-to-jira-output-1 (&rest args)
   "Call `org-files-to-jira-output-line' with ARGS and read it as lisp data."
@@ -147,7 +172,7 @@ ARGS is a plist."
   ;; insert one if none
   (cl-labels ((insert-1 (ticket-fields beg)
 			(defvar my-ticket-fields ticket-fields)
-			(insert (parseedn-print-str ticket-fields))
+		(insert (parseedn-print-str ticket-fields))
 			(insert "\n")
 			(let ((end (point-marker)))
 			  (goto-char beg)
@@ -190,11 +215,11 @@ ARGS is a plist."
       fields)
      fields)))
 
-(defun org-files-to-jira-make-ticket ()
-  "Make a ticket with current org-files-to-jira buffer."
-  (interactive)
-  (-let* ((temp-file (make-temp-file "org-files-to-jira-ticket" nil ".edn"))
-	  (tkt (ticket-fiels))
+(defun org-files-to-jira-temp-file () (make-temp-file "org-files-to-jira-ticket" nil ".edn"))
+
+(defun org-files-to-jira-create-ticket-file (temp-file)
+  "Create a ticket temp file that we would use for creating a ticket."
+  (-let* ((tkt (ticket-fiels))
 	  ((&hash :description description) tkt))
     (pcase description
       (:below
@@ -207,13 +232,23 @@ ARGS is a plist."
       (parseedn-print
        `(:fields ,tkt))
       (save-buffer))
-    (let ((ticket (org-files-to-jira-output-line
-		   "jirazzz/create-issue!"
-		   ":in-file"
-		   temp-file)))
-      (unless ticket
-	(user-error "Did not work: %s" temp-file))
-      (message "jira: %s" ticket))))
+    temp-file))
+
+(defun org-files-to-jira-data-file ()
+  "Create a ticket temp file that we would use for creating a ticket.
+Pop to that file and nothing else."
+  (interactive)
+  (find-file (org-files-to-jira-create-ticket-file (org-files-to-jira-temp-file))))
+
+(defun org-files-to-jira-create-ticket ()
+  "Make a ticket with current org-files-to-jira buffer."
+  (interactive)
+  (let ((temp-file (org-files-to-jira-temp-file)))
+    (unwind-protect
+	(org-files-to-jira-create-ticket-file
+	 temp-file)
+      (when (file-exists-p temp-file)
+	(delete-file temp-file)))))
 
 (defun org-files-to-jira-delete-what-you-just-said (str)
   (delete-region
@@ -378,10 +413,17 @@ create FILE if it does not exist."
 	     (goto-char (point-min))
 	     (org-files-to-jira-select-keys
 	      (car (parseedn-read))
-	      '(:project
+	      '(:description :below
+		:project
 		:assignee
 		:issue-type)))))))))
 
 (provide 'org-files-to-jira)
 
 ;;; org-files-to-jira.el ends here
+
+
+;; (org-files-to-jira-output-line
+;;  "jirazzz/browse-ticket!"
+;;  ":input"
+;;  "COS-144093")

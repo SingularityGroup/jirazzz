@@ -1,9 +1,10 @@
 #+begin_src jinote-ticket-fields
   {:project "COS"
-   :assignee {:accountId "5ace46054fe2de2a7f6302bf"}
+   :summary "foo"
+   :description :below
+   :assignee {:name "Benjamin Schwerdtner" :accountId "5ace46054fe2de2a7f6302bf"}
    :issue-type "Task"}
 #+end_src
-
 
 * foo
 ** foo2

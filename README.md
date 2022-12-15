@@ -11,18 +11,67 @@ The emacs integration is reified in `org-files-to-jira.el`.
 
 ## Quick start
 
+If you are not using emacs do 1. and 2. and jump down to
+`jirazzz` for cli usage.
+
 1.
 
 ```shell
 git clone git@github.com:SingularityGroup/jirazzz.git sg-jiraz
 ```
 
-2. use `my-jira-config.edn` as template.
-Either modify that in place
-or put it into `~/.jirazzz.edn`
+2. use `example-config.edn` as template.
 
+```shell
+cp example-config.edn my-jira-config.edn
+```
+
+Now modify my-jira-config.edn.
+You want to set :get-creds and :assignee.
+(You can focus on :get-creds for now and later do :assignee).
+
+Alternatively you can put the config into
+`~/.jirazzz.edn`
+or pass a custom path via `JIRAZZZ_CONFIG_FILE` env var.
+
+If you use the emacs integration,
+Ensure that `org-files-to-jira-jiraz-config-file` is correct.
+
+The default assumes you have a `my-jira-config.edn`
+
+3. Load the package
+
+Depends on `clojure-mode` an `parseedn` available in your image.
+https://github.com/clojure-emacs/clojure-mode/
+https://github.com/clojure-emacs/parseedn
+
+```elisp
+(add-to-list 'load-path " path to jiraz-sg/.")
+(require 'org-files-to-jira)
+```
+
+4. Make an example org file and visit it
+
+5. `M-x org-files-to-jira-make-org-file`
+
+Now you have a jira fields src block on the top.
+When :description is set to :below it will take the rest of the file
+as the description.
+
+6. To get completions for the ticket fields you do
+
+`M-x org-files-to-jira-ticket-fields-mode`.
+
+Now you modify the fields using completion-at-point.
+When you are done with fields and want to go to org editin again you
+`revert-buffer` or do `M-x org-mode`.
+
+Alternatively you say `org-edit-src-code`.
+
+7. `M-x org-files-to-jira-create-ticket`
 
 ## Concepts
+
 
 ### org-jira-markup
 
@@ -36,10 +85,6 @@ You can enable this mode in a file with similar contents to this:
 
 It adds to completion-at-point-functions so you can type fields,
 labels etc.
-
-
-1. Visit an org file
-2. Use
 
 #### edn only case
 
@@ -55,6 +100,13 @@ EOF
 
 You can visit 1.edn, make adjustments, then
 you can do `M-x` `org-files-to-jira-create-1`, select `1.edn`.
+
+### data file
+
+Use `org-files-to-jira-data-file` to see what data we would give jira
+for the current file.
+
+
 
 # jirazzz
 
