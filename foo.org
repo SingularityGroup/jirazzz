@@ -1,11 +1,11 @@
-#+begin_src jinote-ticket-fields
+#+begin_src org-files-to-jira-ticket-fields
   {:project "BEN"
    :summary "foo"
-   :labels ["fooland"]
+   :labels ["fooland" "Lore"]
    :components ["Bingo"]
    :description :below
-   :assignee {:name "Benjamin Schwerdtner" :accountId "5ace46054fe2de2a7f6302bf"}
-   :issue-type "Task"}
+   :assignee {:name "CowVillain" :accountId "60bdc5cba1746300703dae5b"}
+   :issue-type "Task"} 
 #+end_src
 
 * foo

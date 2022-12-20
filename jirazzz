@@ -94,8 +94,9 @@
                   (-> config-file str slurp read-edn))
                 from-env)
         creds
-        (string/trim
-         (:out (apply shell/sh (:get-creds config))))]
+        (if-let [get-creds (:get-creds config)]
+          (string/trim
+           (:out (apply shell/sh get-creds))))]
     (assoc config :jira-token creds)))
 
 (defn maybe-string
